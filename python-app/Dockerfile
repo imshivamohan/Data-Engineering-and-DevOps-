@@ -1,26 +1,27 @@
-# Use Ubuntu as base image
-FROM ubuntu:latest
-
-# Set non-interactive mode to avoid prompts during installation
-ENV DEBIAN_FRONTEND=noninteractive
-
-# Update package list and install Python3, Pip, and venv
-RUN apt update && apt install -y python3 python3-pip python3-venv
-
-# Set the working directory inside the container
+# Build stage (compiling dependencies)
+FROM python:3.11-alpine AS builder
 WORKDIR /app
 
-# Copy application files
+# Install build dependencies
+COPY requirements.txt .
+RUN pip install --user --no-cache-dir -r requirements.txt
+
+# Copy application code
 COPY . .
 
-# Create a virtual environment and install dependencies inside it
-RUN python3 -m venv venv && \
-    . venv/bin/activate && \
-    pip install --no-cache-dir -r requirements.txt
+# Final stage (minimal runtime environment)
+FROM python:3.11-alpine
+WORKDIR /app
 
-# Expose the Flask port
-EXPOSE 5000
+# Copy only necessary parts from the builder stage
+COPY --from=builder /root/.local /root/.local
+COPY app.py .
 
-# Run the Flask app inside the virtual environment
-CMD ["sh", "-c", ". venv/bin/activate && python3 app.py"]
+# Set the path to include user-installed packages
+ENV PATH=/root/.local/bin:$PATH
 
+# Set a non-root user for security
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+USER appuser
+
+CMD ["python", "app.py"]
