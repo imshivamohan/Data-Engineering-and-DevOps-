@@ -1,0 +1,40 @@
+# Use Alpine as base image
+FROM alpine:latest AS builder
+
+# Set non-interactive mode
+ENV PYTHONUNBUFFERED=1
+
+# Install Python3, Pip, and venv
+RUN apk add --no-cache python3 py3-pip 
+
+WORKDIR /app
+
+# Copy application files
+COPY . .
+
+# Create a virtual environment and install dependencies
+RUN python3 -m venv venv && \
+    . venv/bin/activate && \
+    pip install --no-cache-dir -r requirements.txt gunicorn && \
+    find /app/venv \( -type d -a -name test -o -name tests \) -o \( -type f -a -name '*.pyc' -o -name '*.pyo' \) -exec rm -rf '{}' +
+
+# Stage 2 - Use Alpine as the final runtime image
+FROM alpine:latest AS release
+
+# Install Python3 and pip in Alpine
+RUN apk add --no-cache python3 py3-pip
+
+WORKDIR /app
+
+# Copy application files and virtual environment from the builder stage
+COPY --from=builder /app /app
+COPY app.py .
+
+# Ensure the virtual environment is used
+ENV PATH="/app/venv/bin:$PATH"
+
+EXPOSE 5000
+
+# Run Flask with Gunicorn as the WSGI server
+CMD ["/app/venv/bin/gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "app:app"]
+
