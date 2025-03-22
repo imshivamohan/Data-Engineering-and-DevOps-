@@ -1,0 +1,26 @@
+# Use Alpine as base image
+FROM alpine:latest
+
+# Set non-interactive mode
+ENV PYTHONUNBUFFERED=1
+
+# Install Python3, Pip, and venv
+RUN apk add --no-cache python3 py3-pip 
+
+# Set the working directory inside the container
+WORKDIR /app
+
+# Copy application files
+COPY . .
+
+# Create a virtual environment and install dependencies inside it
+RUN python3 -m venv venv && \
+    . venv/bin/activate && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Expose the Flask port
+EXPOSE 5000
+
+# Run the Flask app inside the virtual environment
+CMD ["sh", "-c", ". venv/bin/activate && python3 app.py"]
+

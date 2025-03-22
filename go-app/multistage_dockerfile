@@ -1,0 +1,33 @@
+# Stage 1: Build the Go application
+FROM ubuntu:latest AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install Go
+RUN apt update && apt install -y golang-go 
+
+WORKDIR /app
+
+# Copy source files
+COPY . .
+
+# Initialize Go modules and tidy up dependencies
+RUN go mod init myapp && go mod tidy 
+
+# Build the Go binary
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o myapp
+
+# Stage 2: Create a minimal final image
+FROM scratch
+
+WORKDIR /root/
+
+# Copy the built binary from the builder stage
+COPY --from=builder /app/myapp .
+
+# Expose the application port
+EXPOSE 8081
+
+# Run the application
+CMD ["./myapp"]
+
